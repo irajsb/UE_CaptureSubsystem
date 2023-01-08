@@ -5,6 +5,8 @@
 - Supports hardware encoding
 - MultiThreaded
 - Supports showing and hiding the UI
+- Supports screenshots
+- Supports horizontal cropping
 Contributions are welcome.
 
 ## TODO : 
