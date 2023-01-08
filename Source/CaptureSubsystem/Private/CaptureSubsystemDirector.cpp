@@ -7,11 +7,12 @@
 #if WITH_EDITOR
 #include "Editor.h"
 #endif
+#include "CaptureGameViewportClient.h"
 #include "Engine/World.h"
 #include "Misc/FileHelper.h"
 #include "EncoderThread.h"
 #include "VideoCaptureSubsystem.h"
-
+#include "Engine/TextureRenderTarget2D.h"
 
 
 UCaptureSubsystemDirector::UCaptureSubsystemDirector() :
@@ -20,7 +21,7 @@ UCaptureSubsystemDirector::UCaptureSubsystemDirector() :
 	FilterGraph(nullptr),
 	BufferSinkContext(nullptr),
 	BufferSrcContext(nullptr),
-	AudioDevice(nullptr),
+	
 	GameWindow(nullptr),
 	BuffBgr(nullptr),
 	Runnable(nullptr),
@@ -49,15 +50,19 @@ void UCaptureSubsystemDirector::DestoryDirector()
 {
 	if (!IsDestroy)
 	{
+		
+		if (FAudioDeviceHandle AudioDeviceHandle = GEngine->GetMainAudioDevice())
+		{
+		
+	
+			AudioDeviceHandle->UnregisterSubmixBufferListener(this);
+		}
+		
 		RunnableThread->Kill(true);
 		delete Runnable;
 		Runnable = nullptr;
 
-		if (AudioDevice)
-		{
-			AudioDevice->UnregisterSubmixBufferListener(this);
-			
-		}
+		
 		
 		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().RemoveAll(this);
 		
@@ -94,14 +99,12 @@ void UCaptureSubsystemDirector::EndWindowReader_StandardGame(void* i)
 	this->BeginDestroy();
 }
 
-void UCaptureSubsystemDirector::Begin_Receive_AudioData(UWorld* world)
+void UCaptureSubsystemDirector::Begin_Receive_AudioData(UWorld* World)
 {
-	GameMode = world->WorldType;
-	
-	FAudioDeviceHandle AudioDeviceHandle = world->GetAudioDevice();
+	GameMode = World->WorldType;
 
-	//AudioDevice = AudioDeviceHandle;
-	if (AudioDeviceHandle)
+
+	if (FAudioDeviceHandle AudioDeviceHandle = GEngine->GetMainAudioDevice())
 	{
 		
 	
@@ -167,7 +170,7 @@ void UCaptureSubsystemDirector::Initialize_Director(UWorld* World,FVideoCaptureO
 	{
 		if (avformat_alloc_output_context2(&OutFormatContext, NULL, NULL, TCHAR_TO_ANSI(*(Options.OutFileName))) < 0)
 		{
-			UE_LOG(LogTemp,Fatal,TEXT("potential File name error %s"),*Options.OutFileName)
+			UE_LOG(LogCaptureSubsystem,Fatal,TEXT("potential File name error %s"),*Options.OutFileName)
 
 		}
 	}
@@ -205,7 +208,10 @@ void UCaptureSubsystemDirector::OnBackBufferReady_RenderThread(SWindow& SlateWin
 	{
 		if (TickTime >= VideoTickTime)
 		{
-			GameTexture =Options.ShowUI?BackBuffer:GEngine->GameViewport->Viewport->GetRenderTargetTexture();
+			UCaptureGameViewportClient* ViewportClient =static_cast<UCaptureGameViewportClient*>( GetWorld()->GetGameViewport());
+			auto Texture=ViewportClient->MyRenderTarget->GetResource()->GetTexture2DRHI();
+			
+			GameTexture =Options.ShowUI?BackBuffer:Texture;
 			TickTime -= VideoTickTime;
 			if(!Runnable)
 			{
@@ -732,9 +738,9 @@ void UCaptureSubsystemDirector::LogErrorUE(int ErrorNum,bool bFatal)
 	const FString Error(Len,Code);
 	if(bFatal)
 	{
-		UE_LOG(LogTemp,Fatal,TEXT("Error: %s"),*Error);
+		UE_LOG(LogCaptureSubsystem,Fatal,TEXT("Error: %s"),*Error);
 	}else
 	{
-		UE_LOG(LogTemp,Error,TEXT("Error: %s"),*Error);
+		UE_LOG(LogCaptureSubsystem,Error,TEXT("Error: %s"),*Error);
 	}
 }

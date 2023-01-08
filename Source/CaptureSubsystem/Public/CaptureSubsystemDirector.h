@@ -105,7 +105,7 @@ private:
 	AVFilterContext *BufferSrcContext;
 	
 
-	FAudioDevice* AudioDevice;
+	
 	SWindow* GameWindow;
 	TArray<FColor> TexturePixel;
 	float TickTime = 0.0f;

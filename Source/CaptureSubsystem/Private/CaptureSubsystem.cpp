@@ -6,6 +6,7 @@
 extern  "C" {
 #include "libavformat/avformat.h"
 }
+DEFINE_LOG_CATEGORY(LogCaptureSubsystem);
 
 #define LOCTEXT_NAMESPACE "FCaptureSubsystemModule"
 
