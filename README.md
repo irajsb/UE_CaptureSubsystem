@@ -9,6 +9,9 @@
 - Supports horizontal cropping
 Contributions are welcome.
 
+## How to use
+1- Set your game viewport client to CaptureViewportClient  
+2- Call StartCapture, EndCapture or TakeScreenshot.
 ## TODO : 
 - Clean up video capture code and algorithm.
 - Reduce audio circle queues from two to one.
