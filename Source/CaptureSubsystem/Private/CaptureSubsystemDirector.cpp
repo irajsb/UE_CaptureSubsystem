@@ -8,6 +8,7 @@
 #include "Editor.h"
 #endif
 #include "CaptureGameViewportClient.h"
+#include "CaptureSubsystem.h"
 #include "Engine/World.h"
 #include "Misc/FileHelper.h"
 #include "EncoderThread.h"
@@ -51,7 +52,7 @@ void UCaptureSubsystemDirector::DestoryDirector()
 	if (!IsDestroy)
 	{
 		
-		if (FAudioDeviceHandle AudioDeviceHandle = GEngine->GetMainAudioDevice())
+		if (FAudioDeviceHandle AudioDeviceHandle = GetWorld()->GetAudioDevice())
 		{
 		
 	
@@ -104,7 +105,7 @@ void UCaptureSubsystemDirector::Begin_Receive_AudioData(UWorld* World)
 	GameMode = World->WorldType;
 
 
-	if (FAudioDeviceHandle AudioDeviceHandle = GEngine->GetMainAudioDevice())
+	if (FAudioDeviceHandle AudioDeviceHandle = World->GetAudioDevice())
 	{
 		
 	
@@ -115,9 +116,9 @@ void UCaptureSubsystemDirector::Begin_Receive_AudioData(UWorld* World)
 void UCaptureSubsystemDirector::Initialize_Director(UWorld* World,FVideoCaptureOptions CaptureOptions)
 {
 	
-	avfilter_register_all();
+	
 	//avfilter_register()
-	av_register_all();
+	
 	avformat_network_init();
 	Options=CaptureOptions;
 	
@@ -161,17 +162,17 @@ void UCaptureSubsystemDirector::Initialize_Director(UWorld* World,FVideoCaptureO
 	int IsUseRTMP = Options.OutFileName.Find("rtmp");
 	if (IsUseRTMP==0)
 	{
-		if (avformat_alloc_output_context2(&OutFormatContext, NULL, "flv", TCHAR_TO_ANSI(*(Options.OutFileName))) < 0)
+		if (const int Err=avformat_alloc_output_context2(&OutFormatContext, NULL, "flv", TCHAR_TO_ANSI(*(Options.OutFileName)));Err < 0)
 		{
-			check(false);
+			LogErrorUE(Err,true);
 		}
 	}
 	else
 	{
-		if (avformat_alloc_output_context2(&OutFormatContext, NULL, NULL, TCHAR_TO_ANSI(*(Options.OutFileName))) < 0)
+		if (const int Err=avformat_alloc_output_context2(&OutFormatContext, NULL, NULL, TCHAR_TO_ANSI(*(Options.OutFileName)));Err < 0)
 		{
-			UE_LOG(LogCaptureSubsystem,Fatal,TEXT("potential File name error %s"),*Options.OutFileName)
-
+			UE_LOG(LogCaptureSubsystem,Error,TEXT("potential File name error , Check file extention %s"),*Options.OutFileName)
+			LogErrorUE(Err,true);
 		}
 	}
 	//create audio encoder
@@ -277,68 +278,94 @@ void UCaptureSubsystemDirector::CreateEncodeThread()
 	
 }
 
+
+
 void UCaptureSubsystemDirector::Create_Audio_Encoder(const char* audioencoder_name)
 {
-	AVCodec* audioencoder_codec;
-	audioencoder_codec = avcodec_find_encoder_by_name(audioencoder_name);
-	OutAudioStream = avformat_new_stream(OutFormatContext, audioencoder_codec);
+	const AVCodec* AudioCodec = avcodec_find_encoder_by_name(audioencoder_name);
+	OutAudioStream = avformat_new_stream(OutFormatContext, AudioCodec);
 	AudioIndex = OutAudioStream->index;
-	AudioEncoderCodecContext = avcodec_alloc_context3(audioencoder_codec);
+	AudioEncoderCodecContext = avcodec_alloc_context3(AudioCodec);
 
 	if (!OutAudioStream)
 	{
-		check(false);
+		UE_LOG(LogCaptureSubsystem,Fatal,TEXT("No out audio stream"));
 	}
 	AudioEncoderCodecContext->codec_id = AV_CODEC_ID_AAC;
 	AudioEncoderCodecContext->bit_rate = 120000;
 	AudioEncoderCodecContext->codec_type = AVMEDIA_TYPE_AUDIO;
 	AudioEncoderCodecContext->sample_rate = 48000;
 	AudioEncoderCodecContext->sample_fmt = AV_SAMPLE_FMT_FLTP;
-	AudioEncoderCodecContext->channels = 2;
 	AudioEncoderCodecContext->channel_layout = AV_CH_LAYOUT_STEREO;
-
+	
+	
 	if (OutFormatContext->oformat->flags & AVFMT_GLOBALHEADER)
 		AudioEncoderCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
 	AudioEncoderCodecContext->codec_tag = 0;
 	OutAudioStream->codecpar->codec_tag = 0;
 
-	if (avcodec_open2(AudioEncoderCodecContext, audioencoder_codec, NULL) < 0)
-	{
-		check(false);
-	}
+	;
+		if(const int ErrorResult=	avcodec_open2(AudioEncoderCodecContext, AudioCodec, NULL);ErrorResult<0)
+		{
+			LogErrorUE(ErrorResult,true);
+		}
+	
 	avcodec_parameters_from_context(OutAudioStream->codecpar, AudioEncoderCodecContext);
 
 	AudioFrame = av_frame_alloc();
 	AudioFrame->nb_samples = AudioEncoderCodecContext->frame_size;
 	AudioFrame->format = AudioEncoderCodecContext->sample_fmt;
+	AudioFrame->channel_layout=AV_CH_LAYOUT_STEREO;
+	if(const int Error= av_frame_get_buffer(AudioFrame,0);Error<0)
+	{
+		LogErrorUE(Error,true);	
+	}
+	
+	
 }
 
 void UCaptureSubsystemDirector::Create_Video_Encoder(bool is_use_NGPU, const char* out_file_name, int bit_rate)
 {
-	AVCodec *encoder_codec;
-	int ret;
-
+	const AVCodec *EncoderCodec=nullptr;
+	
 	if (is_use_NGPU)
-	{
-		encoder_codec = avcodec_find_encoder_by_name("nvenc_h264");
+	{	if(IsRHIDeviceNVIDIA())
+		{
+			EncoderCodec = avcodec_find_encoder_by_name("h264_nvenc");
+			if(EncoderCodec)
+			{
+				UE_LOG(LogTemp,Log,TEXT("nvenc added"));
+			}
+		}else if (IsRHIDeviceAMD())
+		{
+			EncoderCodec = avcodec_find_encoder_by_name("h264_amf");
+			if(EncoderCodec)
+			{
+				UE_LOG(LogTemp,Log,TEXT("AMF"))
+			}
+		}
+		if(!EncoderCodec)
+		{
+			EncoderCodec = avcodec_find_encoder(AV_CODEC_ID_H264);
+		}
 	}
 	else
 	{
-		encoder_codec = avcodec_find_encoder(AV_CODEC_ID_H264);
+		EncoderCodec = avcodec_find_encoder(AV_CODEC_ID_H264);
 	}
-	if (!encoder_codec)
+	if (!EncoderCodec)
 	{
-		check(false);
+		UE_LOG(LogCaptureSubsystem,Fatal,TEXT("No encoder found"));
 	}
-	OutVideoStream = avformat_new_stream(OutFormatContext, encoder_codec);
+	OutVideoStream = avformat_new_stream(OutFormatContext, EncoderCodec);
 
 	VideoIndex = OutVideoStream->index;
 
-	VideoEncoderCodecContext = avcodec_alloc_context3(encoder_codec);
+	VideoEncoderCodecContext = avcodec_alloc_context3(EncoderCodec);
 	if (!VideoEncoderCodecContext)
 	{
-		check(false);
+		UE_LOG(LogCaptureSubsystem,Fatal,TEXT("No VideoEncoderCodecContext!"))
 	}
 	VideoEncoderCodecContext->bit_rate = bit_rate;
 	//video_encoder_codec_context->rc_min_rate = bit_rate;
@@ -367,35 +394,35 @@ void UCaptureSubsystemDirector::Create_Video_Encoder(bool is_use_NGPU, const cha
 	VideoEncoderCodecContext->framerate = { Options.FPS,1 };
 
 	//ultrafast,superfast, veryfast, faster, fast, medium, slow, slower, veryslow,placebo.
-	if (encoder_codec)
+	if (EncoderCodec)
 		av_opt_set(VideoEncoderCodecContext->priv_data, "preset", "fast",
-			0);
+		           0);
 
 	if (OutFormatContext->oformat->flags & AVFMT_GLOBALHEADER)
 		VideoEncoderCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
 	
-	int i = avcodec_open2(VideoEncoderCodecContext, encoder_codec, NULL);
-	if (i < 0)
+	
+	if ( const int Err=avcodec_open2(VideoEncoderCodecContext, EncoderCodec, NULL); Err< 0)
 	{
-		LogErrorUE(i,true);
-		check(false);
+		LogErrorUE(Err,true);
+		
 	}
 
-	ret = avcodec_parameters_from_context(OutVideoStream->codecpar, VideoEncoderCodecContext);
-	if (ret < 0)
+	 
+	if (const int Err= avcodec_parameters_from_context(OutVideoStream->codecpar, VideoEncoderCodecContext);Err< 0)
 	{
-		check(false);
+		LogErrorUE(Err,true);
 	}
 
 	VideoFrame = av_frame_alloc();
 	if (!VideoFrame)
 	{
-		check(false);
+		UE_LOG(LogCaptureSubsystem,Fatal,TEXT("Video frame alloc failed"));
 	}
 
 	avio_open(&OutFormatContext->pb, out_file_name, AVIO_FLAG_WRITE);
-	ret = av_image_alloc(
+	int ret = av_image_alloc(
 		VideoFrame->data,
 		VideoFrame->linesize,
 		OutWidth,
@@ -404,19 +431,19 @@ void UCaptureSubsystemDirector::Create_Video_Encoder(bool is_use_NGPU, const cha
 		32);
 	if (ret < 0)
 	{
-		check(false);
+		LogErrorUE(ret,true);
 	}
 
 	const int Crop=Options.OptionalCaptureAspectRatio.IsZero()?GameTexture->GetSizeX(): (GameTexture->GetSizeY()*Options.OptionalCaptureAspectRatio.X)/Options.OptionalCaptureAspectRatio.Y;
 
 	SwsContext = sws_getCachedContext(SwsContext,
-		Crop, GameTexture->GetSizeY(), AV_PIX_FMT_BGR24,
-		OutWidth, OutHeight, AV_PIX_FMT_YUV420P,
-		SWS_FAST_BILINEAR, 0, 0, 0);
+	                                  Crop, GameTexture->GetSizeY(), AV_PIX_FMT_BGR24,
+	                                  OutWidth, OutHeight, AV_PIX_FMT_YUV420P,
+	                                  SWS_FAST_BILINEAR, 0, 0, 0);
 
-	if (avformat_write_header(OutFormatContext, NULL) < 0)
+	if (const int Err=avformat_write_header(OutFormatContext, NULL);Err < 0)
 	{
-		check(false);
+		LogErrorUE(Err,true);
 	}
 
 	Video_Frame_Duration = OutVideoStream->time_base.den / Options.FPS;
@@ -428,7 +455,7 @@ void UCaptureSubsystemDirector::Video_Frame_YUV_From_BGR(uint8_t *rgb,uint32 Lin
 
 	const int In_Linesize[1] = {static_cast<int>( 3 * LineSize )};
 	sws_scale(SwsContext, (const uint8_t * const *)&rgb, In_Linesize, 0,
-		GameTexture->GetSizeY(), VideoFrame->data, VideoFrame->linesize);
+	          GameTexture->GetSizeY(), VideoFrame->data, VideoFrame->linesize);
 	
 	VideoFrame->width = OutWidth;
 	VideoFrame->height = OutHeight;
@@ -452,7 +479,7 @@ void UCaptureSubsystemDirector::Create_Audio_Swr(int NumChannels)
 
 void UCaptureSubsystemDirector::OnNewSubmixBuffer(const USoundSubmix* OwningSubmix, float* AudioData, int32 NumSamples, int32 NumChannels, const int32 SampleRate, double AudioClock)
 {
-
+	
 	if(!Runnable)
 		return;
 	if(!Runnable->IsAudioThreadInitialized())
@@ -467,50 +494,66 @@ void UCaptureSubsystemDirector::OnNewSubmixBuffer(const USoundSubmix* OwningSubm
 		Create_Audio_Swr(NumChannels);
 	}
 	
-		if(InitialAudioTime<0)
-		{
-			InitialAudioTime=AudioClock;
-		}
-		AudioClock=AudioClock-InitialAudioTime;
-		Runnable->InsertAudio((uint8_t*)AudioData, (uint8_t*)&AudioClock);
+	if(InitialAudioTime<0)
+	{
+		InitialAudioTime=AudioClock;
+	}
+	AudioClock=AudioClock-InitialAudioTime;
+	Runnable->InsertAudio((uint8_t*)AudioData, (uint8_t*)&AudioClock);
 	
 }
 
 void UCaptureSubsystemDirector::Encode_Audio_Frame(uint8_t *rgb)
 {
 	const uint8_t* data = rgb;
-	AVPacket* audio_pkt = av_packet_alloc();
-	av_init_packet(audio_pkt);
+	AVPacket* AVPacket = av_packet_alloc();
 	
-	int count = swr_convert(SWRContext, OutputChannels, 4096, &data, 1024);
-	int got_output = 0;
+	
+	
 
+	const int Count = swr_convert(SWRContext, OutputChannels, 4096, &data, 1024);
+	
+	
+	if(Count<0)
+	{
+		LogErrorUE(Count,true);
+	}
+	if(const int Error= av_frame_make_writable(AudioFrame);Error<0)
+	{
+		LogErrorUE(Error,true);	
+	}
 	AudioFrame->data[0] = OutputChannels[0];
 	AudioFrame->data[1] = OutputChannels[1];
-	AudioFrame->nb_samples=count;
-	Set_Audio_Volume(AudioFrame);
-
+	AudioFrame->nb_samples=Count;
 	
-	if (const auto ErrorNum=avcodec_encode_audio2(AudioEncoderCodecContext,audio_pkt,AudioFrame,&got_output)<0 )
+	Set_Audio_Volume(AudioFrame);
+	
+	
+	if (const auto ErrorNum=avcodec_send_frame(AudioEncoderCodecContext,AudioFrame);ErrorNum<0 )
 	{
 		LogErrorUE(ErrorNum,true);
 		
 	}
-	if (got_output)
+	
+	
+	while (avcodec_receive_packet(AudioEncoderCodecContext,AVPacket)==0)
 	{
-		audio_pkt->pts = audio_pkt->dts = av_rescale_q(
+		AVPacket->pts = AVPacket->dts = av_rescale_q(
 			(CurrentAudioTime + Options.AudioDelay) / av_q2d({ 1,48000 }),
 			{ 1,48000 },
 			OutAudioStream->time_base);
 		
-		audio_pkt->duration = av_rescale_q(
-			audio_pkt->duration,
+		AVPacket->duration = av_rescale_q(
+			AVPacket->duration,
 			{ 1,48000 },
 			OutAudioStream->time_base);
 
-		audio_pkt->stream_index = AudioIndex;
-		av_write_frame(OutFormatContext, audio_pkt);
-		av_packet_unref(audio_pkt);
+		AVPacket->stream_index = AudioIndex;
+		if(const int Err=av_write_frame(OutFormatContext, AVPacket);Err<0)
+		{
+			LogErrorUE(Err,false);
+		}
+		av_packet_unref(AVPacket);
 	}
 }
 
@@ -524,7 +567,7 @@ void UCaptureSubsystemDirector::Encode_Video_Frame(uint8_t *rgb)
 	AVPacket* Video_Pkt = av_packet_alloc();
 	const int Crop=Options.OptionalCaptureAspectRatio.IsZero()?GameTexture->GetSizeX(): (GameTexture->GetSizeY()*Options.OptionalCaptureAspectRatio.X)/Options.OptionalCaptureAspectRatio.Y;
 	const uint32 Difference=GameTexture->GetSizeX()-Crop;
-	av_init_packet(Video_Pkt);
+	
 	for (Row = 0; Row < GameTexture->GetSizeY(); ++Row)
 	{
 		
@@ -534,14 +577,14 @@ void UCaptureSubsystemDirector::Encode_Video_Frame(uint8_t *rgb)
 			
 		
 			if(Col>=Difference/2 &&Col<=GameTexture->GetSizeX()-Difference/2){
-			uint32 EncodedPixel = *PixelPtr;
-			//	AV_PIX_FMT_BGR24	这里暂时转换为BGR
-			//	AV_PIX_FMT_RGB24	掉帧严重 暂时不知道为什么
-			*(BuffBgr + 2) = (EncodedPixel >> 2) & 0xFF;
-			*(BuffBgr + 1) = (EncodedPixel >> 12) & 0xFF;
-			*(BuffBgr) = (EncodedPixel >> 22) & 0xFF;
-			BuffBgr += 3;
-		}
+				uint32 EncodedPixel = *PixelPtr;
+				//	AV_PIX_FMT_BGR24	这里暂时转换为BGR
+				//	AV_PIX_FMT_RGB24	掉帧严重 暂时不知道为什么
+				*(BuffBgr + 2) = (EncodedPixel >> 2) & 0xFF;
+				*(BuffBgr + 1) = (EncodedPixel >> 12) & 0xFF;
+				*(BuffBgr) = (EncodedPixel >> 22) & 0xFF;
+				BuffBgr += 3;
+			}
 			++PixelPtr;		
 		}
 		
@@ -557,9 +600,9 @@ void UCaptureSubsystemDirector::Encode_Video_Frame(uint8_t *rgb)
 
 	AVFrame* filt_frame = av_frame_alloc();
 
-	if (av_buffersrc_add_frame_flags(BufferSrcContext, VideoFrame, AV_BUFFERSRC_FLAG_KEEP_REF) < 0)
+	if (const int Err=av_buffersrc_add_frame_flags(BufferSrcContext, VideoFrame, AV_BUFFERSRC_FLAG_KEEP_REF);Err < 0)
 	{
-		check(false);
+		LogErrorUE(Err,true);
 	}
 	while (1)
 	{
@@ -627,27 +670,27 @@ void UCaptureSubsystemDirector::Alloc_Video_Filter()
 	FilterGraph = avfilter_graph_alloc();
 	if (!Outputs || !Inputs || !FilterGraph)
 	{
-		check(false);
+		UE_LOG(LogCaptureSubsystem,Fatal,TEXT("Filter allocation error"));
 	}
 
 	char args[100];
 	snprintf(args, sizeof(args),
-		"video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
-		VideoEncoderCodecContext->width, VideoEncoderCodecContext->height, VideoEncoderCodecContext->pix_fmt,
-		time_base.num, time_base.den,
-		VideoEncoderCodecContext->sample_aspect_ratio.num, VideoEncoderCodecContext->sample_aspect_ratio.den);
+	         "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+	         VideoEncoderCodecContext->width, VideoEncoderCodecContext->height, VideoEncoderCodecContext->pix_fmt,
+	         time_base.num, time_base.den,
+	         VideoEncoderCodecContext->sample_aspect_ratio.num, VideoEncoderCodecContext->sample_aspect_ratio.den);
 
 	int Ret = avfilter_graph_create_filter(&BufferSrcContext, buffersrc, "in",
 	                                       args, NULL, FilterGraph);
 	if (Ret < 0)
 	{
-		check(false);
+		LogErrorUE(Ret,true);
 	}
 	Ret = avfilter_graph_create_filter(&BufferSinkContext, buffersink, "out",
-		NULL, NULL, FilterGraph);
+	                                   NULL, NULL, FilterGraph);
 	if (Ret < 0)
 	{
-		check(false);
+		LogErrorUE(Ret,true);
 	}
 
 
@@ -656,10 +699,10 @@ void UCaptureSubsystemDirector::Alloc_Video_Filter()
 	
 
 	Ret = av_opt_set_int_list(BufferSinkContext, "pix_fmts", pix_fmts,
-		AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
+	                          AV_PIX_FMT_NONE, AV_OPT_SEARCH_CHILDREN);
 	if (Ret < 0)
 	{
-		check(false);
+		LogErrorUE(Ret,true);
 	}
 
 	Outputs->name = av_strdup("in");
@@ -673,13 +716,13 @@ void UCaptureSubsystemDirector::Alloc_Video_Filter()
 	Inputs->next = NULL;
 	
 	if ((Ret = avfilter_graph_parse_ptr(FilterGraph, TCHAR_TO_ANSI(*FilterDescription),
-		&Inputs, &Outputs, NULL)) < 0)
+	                                    &Inputs, &Outputs, NULL)) < 0)
 	{
-		check(false);
+		LogErrorUE(Ret,true);
 	}
 	if ((Ret = avfilter_graph_config(FilterGraph, NULL)) < 0)
 	{
-		check(false);
+		LogErrorUE(Ret,true);
 	}
 }
 
@@ -694,12 +737,14 @@ uint32 UCaptureSubsystemDirector::FormatSize_X(uint32 x)
 
 void UCaptureSubsystemDirector::Encode_Finish()
 {
+	UE_LOG(LogCaptureSubsystem,Log,TEXT("Finishing Encoding"));
 	if (OutFormatContext)
 	{
 		av_write_trailer(OutFormatContext);
 		avio_close(OutFormatContext->pb);
 		avformat_free_context(OutFormatContext);
 	}
+	UE_LOG(LogTemp,Log,TEXT("Freeing  VideoEncoderCodecContext"));
 
 	if (VideoEncoderCodecContext)
 	{
@@ -707,35 +752,36 @@ void UCaptureSubsystemDirector::Encode_Finish()
 		avcodec_close(VideoEncoderCodecContext);
 		av_free(VideoEncoderCodecContext);
 	}
-
+	UE_LOG(LogTemp,Log,TEXT("Freeing  AudioEncoderCodecContext"));
 	if (AudioEncoderCodecContext)
 	{
 		avcodec_free_context(&AudioEncoderCodecContext);
 		avcodec_close(AudioEncoderCodecContext);
 		av_free(AudioEncoderCodecContext);
 	}
+	UE_LOG(LogTemp,Log,TEXT("Freeing  SWRContext"));
 	if (SWRContext)
 	{
 		swr_close(SWRContext);
 		swr_free(&SWRContext);
 		sws_freeContext(SwsContext);
 	}
-
+	UE_LOG(LogTemp,Log,TEXT("Freeing  avfilter_graph_free"));
 	avfilter_graph_free(&FilterGraph);
 	avfilter_inout_free(&Inputs);
 	avfilter_inout_free(&Outputs);
-
+	UE_LOG(LogTemp,Log,TEXT("Freeing  av_frame_free"));
 	av_frame_free(&VideoFrame);
 	av_frame_free(&AudioFrame);
 }
 
 void UCaptureSubsystemDirector::LogErrorUE(int ErrorNum,bool bFatal)
 {
-	char * Code = nullptr;
-	int Len=0;
+	char Errbuf[255];
 	
-	av_make_error_string(Code,Len,ErrorNum);
-	const FString Error(Len,Code);
+	av_strerror(ErrorNum,Errbuf,sizeof(Errbuf));
+	const FString Error(Errbuf);
+	
 	if(bFatal)
 	{
 		UE_LOG(LogCaptureSubsystem,Fatal,TEXT("Error: %s"),*Error);

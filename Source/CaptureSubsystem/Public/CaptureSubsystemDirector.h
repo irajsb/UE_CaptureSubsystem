@@ -79,7 +79,7 @@ private:
 	void Alloc_Video_Filter();
 	uint32 FormatSize_X(uint32 x);
 
-	void LogErrorUE(int ErrorNum, bool bFatal);
+	static void LogErrorUE(int ErrorNum, bool bFatal);
 
 private:
 	bool IsDestroy = false;

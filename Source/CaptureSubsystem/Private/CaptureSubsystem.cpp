@@ -14,14 +14,15 @@ void FCaptureSubsystemModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
 
-	AVUtilLibrary = LoadLibrary(TEXT("avutil"), TEXT("56"));
-	SWResampleLibrary = LoadLibrary(TEXT("swresample"), TEXT("3"));
-	AVCodecLibrary = LoadLibrary(TEXT("avcodec"), TEXT("58"));
-	AVFormatLibrary = LoadLibrary(TEXT("avformat"), TEXT("58"));
-	SWScaleLibrary = LoadLibrary(TEXT("swscale"), TEXT("5"));
-	PostProcLibrary = LoadLibrary(TEXT("postproc"), TEXT("55"));
-	AVFilterLibrary = LoadLibrary(TEXT("avfilter"), TEXT("7"));
-	AVDeviceLibrary = LoadLibrary(TEXT("avdevice"), TEXT("58"));
+	
+	AVUtilLibrary = LoadLibrary(TEXT("avutil"), TEXT("57"));
+	SWResampleLibrary = LoadLibrary(TEXT("swresample"), TEXT("4"));
+	AVCodecLibrary = LoadLibrary(TEXT("avcodec"), TEXT("59"));
+	AVFormatLibrary = LoadLibrary(TEXT("avformat"), TEXT("59"));
+	SWScaleLibrary = LoadLibrary(TEXT("swscale"), TEXT("6"));
+	PostProcLibrary = LoadLibrary(TEXT("postproc"), TEXT("56"));
+	AVFilterLibrary = LoadLibrary(TEXT("avfilter"), TEXT("8"));
+	AVDeviceLibrary = LoadLibrary(TEXT("avdevice"), TEXT("59"));
 	Initialized = true;
 }
 
@@ -62,14 +63,13 @@ void* FCaptureSubsystemModule::LoadLibrary(const FString& name, const FString& v
 	extension = TEXT(".dll");
 	prefix = "";
 	separator = "-";
-#if PLATFORM_64BITS
+
 	LibDir = FPaths::Combine(*BaseDir, TEXT("ThirdParty/ffmpeg/bin/vs/x64"));
-#else
-	LibDir = FPaths::Combine(*BaseDir, TEXT("ThirdParty/ffmpeg/bin/vs/win32"));
-#endif
+
 #endif
 	if (!LibDir.IsEmpty()) {
 		FString LibraryPath = FPaths::Combine(*LibDir, prefix + name + separator + version + extension);
+		UE_LOG(LogCaptureSubsystem,Log,TEXT("Loading %s"),*LibraryPath)
 		return FPlatformProcess::GetDllHandle(*LibraryPath);
 	}
 	return nullptr;
