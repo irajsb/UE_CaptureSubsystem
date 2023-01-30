@@ -40,7 +40,8 @@ bool FEncoderThread::Init()
 
 uint32 FEncoderThread::Run()
 {
-	while (!IsDone)
+	
+	while ((!bStopped)||(!IsFinished()))
 	{
 		RunEncode();
 	}
@@ -49,12 +50,12 @@ uint32 FEncoderThread::Run()
 
 void FEncoderThread::Stop()
 {
-	IsDone = true;
+	bStopped = true;
 }
 
 void FEncoderThread::Exit()
 {
-	
+
 }
 
 void FEncoderThread::CreateQueue(int video_data_size ,int video_data_num)
@@ -98,6 +99,10 @@ EncodeDelegate& FEncoderThread::GetAudioTimeProcessDelegate()
 
 bool FEncoderThread::InsertVideo(uint8* Src)
 {
+	if(bStopped)
+	{
+		return  false;
+	}
 	if (!VideoBufferQueue)
 		return false;
 	{
@@ -114,6 +119,10 @@ bool FEncoderThread::InsertVideo(uint8* Src)
 
 bool FEncoderThread::InsertAudio(uint8* Src, uint8* time)
 {
+	if(bStopped)
+	{
+		return false;
+	}
 	if (!AudioQueue||!AudioTimeQueue)
 		return false;
 	
@@ -135,14 +144,13 @@ void FEncoderThread::GetBufferData(uint8* data)
 
 void FEncoderThread::RunEncode()
 {
-	bool IsNeedEncode = false;
-
 	{
 		FScopeLock ScopeLock(&AudioMutex);
 		EncodeAudio();
 	}
 
 	{
+		bool IsNeedEncode = false;
 		FScopeLock ScopeLock1(&VideoBufferMutex);
 		IsNeedEncode = VideoBufferQueue->PrcessEncodeData();
 
@@ -171,4 +179,13 @@ void FEncoderThread::EncodeAudio()
 		AudioTimeQueue->PrcessEncodeData();
 		AudioQueue->PrcessEncodeData();
 	}
+}
+
+bool FEncoderThread::IsFinished()
+{
+	if(!AudioQueue || !AudioTimeQueue)
+	{
+		return false;
+	}
+	return AudioQueue->IsEmpty()&&AudioTimeQueue->IsEmpty()&&(!VideoData);
 }

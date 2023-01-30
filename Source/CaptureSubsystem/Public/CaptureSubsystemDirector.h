@@ -57,7 +57,7 @@ public:
 	
 	virtual void OnNewSubmixBuffer(const USoundSubmix* OwningSubmix, float* AudioData, int32 NumSamples, int32 NumChannels, const int32 SampleRate, double AudioClock) override;
 	void OnBackBufferReady_RenderThread(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer);
-	bool AddTickTime(float time);
+	bool Tick(float time);
 
 	void EndWindowReader(const bool i);
 	void EndWindowReader_StandardGame(void* i);

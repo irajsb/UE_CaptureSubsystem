@@ -23,7 +23,7 @@ public:
 	virtual uint32 Run() override; 
 	virtual void Stop() override;  
 	virtual void Exit() override; 
-
+	
 	void CreateQueue(int video_data_size ,int video_data_num);
 	void CreateAudioQueue( int auido_data_size, int auido_data_num);
 	bool IsAudioThreadInitialized() const;
@@ -37,10 +37,12 @@ public:
 	FCriticalSection VideoBufferMutex;
 	FCriticalSection AudioMutex;
 
-	bool IsDone = false;
+	bool bStopped = false;
+	bool bExit = false;
 	VideoEncodeDelegate video_encode_delegate;
 	void GetBufferData(uint8* data);
-
+	
+	bool IsFinished();
 private:
 	void RunEncode();
 	void EncodeVideo();

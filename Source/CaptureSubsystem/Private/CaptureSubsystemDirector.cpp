@@ -51,36 +51,17 @@ void UCaptureSubsystemDirector::DestoryDirector()
 {
 	if (!IsDestroy)
 	{
-		
+		IsDestroy = true;
 		if (FAudioDeviceHandle AudioDeviceHandle = GetWorld()->GetAudioDevice())
 		{
 		
 	
 			AudioDeviceHandle->UnregisterSubmixBufferListener(this);
 		}
-		
-		RunnableThread->Kill(true);
-		delete Runnable;
-		Runnable = nullptr;
-
-		
-		
-		FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().RemoveAll(this);
+		Runnable->Stop();
 		
 		
 		
-		
-
-#if WITH_EDITOR
-		FEditorDelegates::PrePIEEnded.Remove(EndPIEDelegateHandle);
-#endif
-		FTSTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
-
-		Encode_Finish();
-		FMemory::Free(OutputChannels[0]);
-		FMemory::Free(OutputChannels[1]);
-		FMemory::Free(BuffBgr);
-		IsDestroy = true;
 	}
 }
 
@@ -224,10 +205,49 @@ void UCaptureSubsystemDirector::OnBackBufferReady_RenderThread(SWindow& SlateWin
 	}
 }
 
-bool UCaptureSubsystemDirector::AddTickTime(float time)
+bool UCaptureSubsystemDirector::Tick(float time)
 {
 	TickTime += time;
 
+
+	if(IsDestroy)
+	{
+		if(Runnable->IsFinished())
+		{
+			Runnable->video_encode_delegate.Unbind();
+			Runnable->GetAudioProcessDelegate().Unbind();
+			Runnable->GetAudioTimeProcessDelegate().Unbind();
+
+		
+			RunnableThread->Kill(true);
+			delete RunnableThread;
+			RunnableThread=nullptr;
+		
+			delete Runnable;
+			Runnable = nullptr;
+		
+		
+		
+			FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().RemoveAll(this);
+		
+		
+		
+		
+
+#if WITH_EDITOR
+			FEditorDelegates::PrePIEEnded.Remove(EndPIEDelegateHandle);
+#endif
+			FTSTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
+
+			Encode_Finish();
+			FMemory::Free(OutputChannels[0]);
+			FMemory::Free(OutputChannels[1]);
+			FMemory::Free(BuffBgr);
+		}else
+		{
+			UE_LOG(LogTemp,Warning,TEXT("Waiting for encoding to finish"));
+		}
+	}
 	return true;
 }
 
@@ -243,7 +263,7 @@ void UCaptureSubsystemDirector::AddEndFunction()
 
 void UCaptureSubsystemDirector::AddTickFunction()
 {
-	TickDelegateHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UCaptureSubsystemDirector::AddTickTime));
+	TickDelegateHandle = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UCaptureSubsystemDirector::Tick));
 }
 
 void UCaptureSubsystemDirector::GetScreenVideoData()
@@ -347,7 +367,7 @@ void UCaptureSubsystemDirector::Create_Video_Encoder(bool is_use_NGPU, const cha
 		}
 		if(!EncoderCodec)
 		{
-			EncoderCodec = avcodec_find_encoder(AV_CODEC_ID_H264);
+			EncoderCodec = avcodec_find_encoder(AV_CODEC_ID_MPEG4);
 		}
 	}
 	else
@@ -373,16 +393,19 @@ void UCaptureSubsystemDirector::Create_Video_Encoder(bool is_use_NGPU, const cha
 	//video_encoder_codec_context->bit_rate_tolerance = bit_rate;
 	//video_encoder_codec_context->rc_buffer_size = bit_rate;
 	//video_encoder_codec_context->rc_initial_buffer_occupancy = bit_rate * 3 / 4;
-	
-	VideoEncoderCodecContext->width = OutWidth;
-	VideoEncoderCodecContext->height = OutHeight;
+	const auto CorrectedWidth=OutWidth-16+OutWidth%16;
+	const auto CorrectedHeight=OutHeight-16+OutHeight%16;
+
+	VideoEncoderCodecContext->width = OutWidth<OutHeight?CorrectedWidth:OutWidth;
+	VideoEncoderCodecContext->height = OutWidth<OutHeight?CorrectedHeight:OutHeight;
 	VideoEncoderCodecContext->max_b_frames = 2;
 	VideoEncoderCodecContext->time_base.num = 1;
+	
 	VideoEncoderCodecContext->time_base.den = Options.FPS;
 	VideoEncoderCodecContext->pix_fmt = AV_PIX_FMT_YUV420P;
 	VideoEncoderCodecContext->me_range = 16;
 	VideoEncoderCodecContext->codec_type = AVMEDIA_TYPE_VIDEO;
-	VideoEncoderCodecContext->profile = FF_PROFILE_H264_BASELINE;
+	//VideoEncoderCodecContext->profile = FF_PROFILE_H264_BASELINE;
 	VideoEncoderCodecContext->frame_number = 1;
 	VideoEncoderCodecContext->qcompress = 0.8;
 	VideoEncoderCodecContext->max_qdiff = 4;
@@ -438,7 +461,7 @@ void UCaptureSubsystemDirector::Create_Video_Encoder(bool is_use_NGPU, const cha
 
 	SwsContext = sws_getCachedContext(SwsContext,
 	                                  Crop, GameTexture->GetSizeY(), AV_PIX_FMT_BGR24,
-	                                  OutWidth, OutHeight, AV_PIX_FMT_YUV420P,
+	                                  VideoEncoderCodecContext->width, VideoEncoderCodecContext->height, AV_PIX_FMT_YUV420P,
 	                                  SWS_FAST_BILINEAR, 0, 0, 0);
 
 	if (const int Err=avformat_write_header(OutFormatContext, NULL);Err < 0)
@@ -479,6 +502,7 @@ void UCaptureSubsystemDirector::Create_Audio_Swr(int NumChannels)
 
 void UCaptureSubsystemDirector::OnNewSubmixBuffer(const USoundSubmix* OwningSubmix, float* AudioData, int32 NumSamples, int32 NumChannels, const int32 SampleRate, double AudioClock)
 {
+
 	
 	if(!Runnable)
 		return;
@@ -737,14 +761,14 @@ uint32 UCaptureSubsystemDirector::FormatSize_X(uint32 x)
 
 void UCaptureSubsystemDirector::Encode_Finish()
 {
-	UE_LOG(LogCaptureSubsystem,Log,TEXT("Finishing Encoding"));
+	
 	if (OutFormatContext)
 	{
 		av_write_trailer(OutFormatContext);
 		avio_close(OutFormatContext->pb);
 		avformat_free_context(OutFormatContext);
 	}
-	UE_LOG(LogTemp,Log,TEXT("Freeing  VideoEncoderCodecContext"));
+	
 
 	if (VideoEncoderCodecContext)
 	{
@@ -752,25 +776,25 @@ void UCaptureSubsystemDirector::Encode_Finish()
 		avcodec_close(VideoEncoderCodecContext);
 		av_free(VideoEncoderCodecContext);
 	}
-	UE_LOG(LogTemp,Log,TEXT("Freeing  AudioEncoderCodecContext"));
+	
 	if (AudioEncoderCodecContext)
 	{
 		avcodec_free_context(&AudioEncoderCodecContext);
 		avcodec_close(AudioEncoderCodecContext);
 		av_free(AudioEncoderCodecContext);
 	}
-	UE_LOG(LogTemp,Log,TEXT("Freeing  SWRContext"));
+	
 	if (SWRContext)
 	{
 		swr_close(SWRContext);
 		swr_free(&SWRContext);
 		sws_freeContext(SwsContext);
 	}
-	UE_LOG(LogTemp,Log,TEXT("Freeing  avfilter_graph_free"));
+
 	avfilter_graph_free(&FilterGraph);
 	avfilter_inout_free(&Inputs);
 	avfilter_inout_free(&Outputs);
-	UE_LOG(LogTemp,Log,TEXT("Freeing  av_frame_free"));
+	
 	av_frame_free(&VideoFrame);
 	av_frame_free(&AudioFrame);
 }
