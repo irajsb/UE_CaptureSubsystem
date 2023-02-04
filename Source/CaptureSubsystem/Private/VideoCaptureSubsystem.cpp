@@ -16,7 +16,7 @@
 
 void UVideoCaptureSubsystem::StartCapture(FVideoCaptureOptions Options)
 {
-	UE_LOG(LogCaptureSubsystem,Log,TEXT("Capturing Video"));
+	UE_LOG(LogCaptureSubsystem, Log, TEXT("Capturing Video"));
 	Director = NewObject<UCaptureSubsystemDirector>(this);
 	if (Options.OutFileName.IsEmpty())
 	{
@@ -27,7 +27,7 @@ void UVideoCaptureSubsystem::StartCapture(FVideoCaptureOptions Options)
 
 void UVideoCaptureSubsystem::EndCapture(FVideoCaptureOptions Options)
 {
-	UE_LOG(LogCaptureSubsystem,Log,TEXT("Ending Video"));
+	UE_LOG(LogCaptureSubsystem, Log, TEXT("Ending Video"));
 	if (Director)
 	{
 		if (GetWorld()->WorldType == EWorldType::Game)
@@ -50,7 +50,7 @@ void UVideoCaptureSubsystem::EndCapture(FVideoCaptureOptions Options)
 
 void UVideoCaptureSubsystem::TakeScreenshot(FString InScreenShotPath, FVector2D OptionalAspectRatio)
 {
-	UE_LOG(LogCaptureSubsystem,Log,TEXT("Begin Screenshot"));
+	UE_LOG(LogCaptureSubsystem, Log, TEXT("Begin Screenshot"));
 	FString Path = InScreenShotPath.IsEmpty() ? GetRecommendedPhotoFileName() : InScreenShotPath;
 
 	AspectRatio = OptionalAspectRatio;

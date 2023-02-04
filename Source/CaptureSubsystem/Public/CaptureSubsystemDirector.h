@@ -52,7 +52,7 @@ public:
 
 	void Encode_Video_Frame(uint8_t *rgb);
 	void Encode_SetCurrentAudioTime(uint8_t* rgb);
-	void Encode_Audio_Frame(uint8_t *rgb);
+	void Encode_Audio_Frame(uint8_t *RawData);
 	void Encode_Finish();
 	
 	virtual void OnNewSubmixBuffer(const USoundSubmix* OwningSubmix, float* AudioData, int32 NumSamples, int32 NumChannels, const int32 SampleRate, double AudioClock) override;
@@ -62,12 +62,12 @@ public:
 	void EndWindowReader(const bool i);
 	void EndWindowReader_StandardGame(void* i);
 	
-	void DestoryDirector();
+	void DestroyDirector();
 	
 private:
-	void Create_Video_Encoder(bool is_use_NGPU, const char* out_file_name,int bit_rate);
-	void Create_Audio_Encoder(const char* audioencoder_name);
-	void Video_Frame_YUV_From_BGR(uint8_t *rgb,uint32 LineSize);
+	void Create_Video_Encoder(bool UseGPU, const char* out_file_name,int bit_rate);
+	void Create_Audio_Encoder(const char* EncoderName);
+	void Video_Frame_YUV_From_BGR(const uint8_t *RGB,uint32 LineSize) const;
 	void Create_Audio_Swr(int NumChannels);
 	void GetScreenVideoData();
 
@@ -77,7 +77,7 @@ private:
 	void Set_Audio_Volume(AVFrame *frame) const;
 	
 	void Alloc_Video_Filter();
-	uint32 FormatSize_X(uint32 x);
+	static uint32 FormatSize_X(uint32 x);
 
 	static void LogErrorUE(int ErrorNum, bool bFatal);
 

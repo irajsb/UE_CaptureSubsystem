@@ -18,8 +18,8 @@ public:
 	FEncodeData();
 	~FEncodeData();
 	void InitializeData(int size);
-	void SetEncodeData(uint8* Src);
-	uint8* GetData();
+	void SetEncodeData(const uint8* Src) const;
+	uint8* GetData() const;
 private:
 	uint8* DataMemory;
 	int datasize;
@@ -34,18 +34,18 @@ public:
 	~UCircleQueue();
 
 	void Init(int queue_len,int data_size);
-	bool InsertEncodeData(uint8* Src);
-	bool PrcessEncodeData();
-	bool IsFull();
-	bool IsEmpty();
-	EncodeDelegate encode_delegate;
+	bool InsertEncodeData(const uint8* Src);
+	bool ProcessEncodeData();
+	bool IsFull() const;
+	bool IsEmpty() const;
+	EncodeDelegate EncodeDelegate;
 private:
-	int queue_num;
+	int QueueNum;
 	//¶ÓÁÐ¿ÕÏÐÊýÁ¿
-	int queue_freenum;
-	int queue_head;
-	int queue_tail;
-	FEncodeData* queue_ptr;
+	int QueueFreeNum;
+	int QueueHead;
+	int QueueTail;
+	FEncodeData* QueuePtr;
 };
 
 

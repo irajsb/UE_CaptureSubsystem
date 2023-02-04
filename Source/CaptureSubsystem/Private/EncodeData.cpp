@@ -4,7 +4,7 @@
 #include "EncodeData.h"
 
 FEncodeData::FEncodeData():
-	DataMemory(nullptr)
+	DataMemory(nullptr), datasize(0)
 {
 }
 
@@ -16,16 +16,16 @@ FEncodeData::~FEncodeData()
 
 void FEncodeData::InitializeData(int size)
 {
-	DataMemory = (uint8*)FMemory::Realloc(DataMemory, size);
+	DataMemory = static_cast<uint8*>(FMemory::Realloc(DataMemory, size));
 	datasize = size;
 }
 
-void FEncodeData::SetEncodeData(uint8* Src)
+void FEncodeData::SetEncodeData(const uint8* Src) const
 {	
 	FMemory::StreamingMemcpy(DataMemory, Src, datasize);	
 }
 
-uint8* FEncodeData::GetData()
+uint8* FEncodeData::GetData() const
 {
 	return DataMemory != nullptr ? DataMemory : nullptr;
 }
@@ -33,54 +33,54 @@ uint8* FEncodeData::GetData()
 //////////////////////////////////////////////////////////////////
 
 UCircleQueue::UCircleQueue():
-	queue_ptr(nullptr)
+	QueuePtr(nullptr)
 {
-	queue_head = 0;
-	queue_tail = 0;
+	QueueHead = 0;
+	QueueTail = 0;
 }
 
 UCircleQueue::~UCircleQueue()
 {
-	delete[] queue_ptr;
+	delete[] QueuePtr;
 }
 
 void UCircleQueue::Init(int queue_len, int data_sized)
 {
-	queue_num = queue_len;
-	queue_freenum = queue_num;
-	queue_ptr = new FEncodeData[queue_num];
-	for (int i = 0; i < queue_num; ++i)
+	QueueNum = queue_len;
+	QueueFreeNum = QueueNum;
+	QueuePtr = new FEncodeData[QueueNum];
+	for (int i = 0; i < QueueNum; ++i)
 	{
-		queue_ptr[i].InitializeData(data_sized);
+		QueuePtr[i].InitializeData(data_sized);
 	}
 }
 
-bool UCircleQueue::InsertEncodeData(uint8* Src)
+bool UCircleQueue::InsertEncodeData(const uint8* Src)
 {
 	if (IsFull())
 		return false;
-	queue_ptr[queue_tail].SetEncodeData(Src);
-	--queue_freenum;
-	queue_tail = (queue_tail + 1) % queue_num;
+	QueuePtr[QueueTail].SetEncodeData(Src);
+	--QueueFreeNum;
+	QueueTail = (QueueTail + 1) % QueueNum;
 	return true;
 }
 
-bool UCircleQueue::PrcessEncodeData()
+bool UCircleQueue::ProcessEncodeData()
 {
 	if (IsEmpty())
 		return false;
-	encode_delegate.ExecuteIfBound(queue_ptr[queue_head].GetData());
-	queue_head= (queue_head + 1) % queue_num;
-	++queue_freenum;
+	EncodeDelegate.ExecuteIfBound(QueuePtr[QueueHead].GetData());
+	QueueHead= (QueueHead + 1) % QueueNum;
+	++QueueFreeNum;
 	return true;
 }
 
-bool UCircleQueue::IsFull()
+bool UCircleQueue::IsFull() const
 {
-	return queue_freenum == 0 ? true : false;
+	return QueueFreeNum == 0 ? true : false;
 }
 
-bool UCircleQueue::IsEmpty()
+bool UCircleQueue::IsEmpty() const
 {
-	return queue_freenum == queue_num ? true : false;
+	return QueueFreeNum == QueueNum ? true : false;
 }

@@ -26,5 +26,5 @@ public:
 	bool PendingCopyViewportToRenderTarget=true;
 
 
-	void CopyTextureRHI(FRenderTarget* MyViewRenderTarget, UTextureRenderTarget2D* DestRenderTarget);
+	void CopyTextureRHI(FRenderTarget* MyViewRenderTarget, UTextureRenderTarget2D* DestRenderTarget) const;
 };
