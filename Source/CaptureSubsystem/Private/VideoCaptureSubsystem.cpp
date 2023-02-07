@@ -11,12 +11,16 @@
 #include "Async/Async.h"
 #include "CaptureSubsystem.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "GameFramework/GameUserSettings.h"
 #include "Misc/FileHelper.h"
 
 
 void UVideoCaptureSubsystem::StartCapture(FVideoCaptureOptions Options)
 {
 	UE_LOG(LogCaptureSubsystem, Log, TEXT("Capturing Video"));
+	GEngine->GetGameUserSettings()->SetFullscreenMode(EWindowMode::WindowedFullscreen);
+	GEngine->GetGameUserSettings()->ApplySettings(false);
+	
 	Director = NewObject<UCaptureSubsystemDirector>(this);
 	if (Options.OutFileName.IsEmpty())
 	{
@@ -50,6 +54,8 @@ void UVideoCaptureSubsystem::EndCapture(FVideoCaptureOptions Options)
 
 void UVideoCaptureSubsystem::TakeScreenshot(FString InScreenShotPath, FVector2D OptionalAspectRatio)
 {
+	GEngine->GetGameUserSettings()->SetFullscreenMode(EWindowMode::WindowedFullscreen);
+	GEngine->GetGameUserSettings()->ApplySettings(false);
 	UE_LOG(LogCaptureSubsystem, Log, TEXT("Begin Screenshot"));
 	FString Path = InScreenShotPath.IsEmpty() ? GetRecommendedPhotoFileName() : InScreenShotPath;
 

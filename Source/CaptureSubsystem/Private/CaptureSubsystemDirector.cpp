@@ -365,8 +365,8 @@ void UCaptureSubsystemDirector::Create_Video_Encoder(bool UseGPU, const char* ou
 	const auto CorrectedWidth = OutWidth - 16 + OutWidth % 16;
 	const auto CorrectedHeight = OutHeight - 16 + OutHeight % 16;
 
-	VideoEncoderCodecContext->width = OutWidth < OutHeight ? CorrectedWidth : OutWidth;
-	VideoEncoderCodecContext->height = OutWidth < OutHeight ? CorrectedHeight : OutHeight;
+	VideoEncoderCodecContext->width =  CorrectedWidth ;
+	VideoEncoderCodecContext->height = CorrectedHeight ;
 	VideoEncoderCodecContext->max_b_frames = 2;
 	VideoEncoderCodecContext->time_base.num = 1;
 
@@ -565,6 +565,7 @@ void UCaptureSubsystemDirector::Encode_Video_Frame(uint8_t* rgb)
 		for (uint32 Col = 0; Col < GameTexture->GetSizeX(); ++Col)
 		{
 			if (Col >= Difference / 2 && Col <= GameTexture->GetSizeX() - Difference / 2)
+			{	if(PixelPtr)
 			{
 				const uint32 EncodedPixel = *PixelPtr;
 				*(BuffBgr + 2) = (EncodedPixel >> 2) & 0xFF;
@@ -572,8 +573,11 @@ void UCaptureSubsystemDirector::Encode_Video_Frame(uint8_t* rgb)
 				*(BuffBgr) = (EncodedPixel >> 22) & 0xFF;
 				BuffBgr += 3;
 			}
+			}
+			
 			++PixelPtr;
 		}
+		
 
 		TextureDataPtr += TextureStride;
 	}

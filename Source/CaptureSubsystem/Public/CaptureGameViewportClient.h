@@ -18,6 +18,7 @@ class CAPTURESUBSYSTEM_API UCaptureGameViewportClient : public UGameViewportClie
 	virtual void Draw(FViewport* InViewport, FCanvas* Canvas) override;
 
 	void CopyViewportToRenderTarget(UTextureRenderTarget2D* RenderTarget);
+	
 
 public:
 	UPROPERTY()

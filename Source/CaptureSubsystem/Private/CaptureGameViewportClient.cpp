@@ -38,6 +38,7 @@ void UCaptureGameViewportClient::CopyViewportToRenderTarget(UTextureRenderTarget
 {
 	MyRenderTarget = RenderTarget;
 	PendingCopyViewportToRenderTarget = true;
+	
 }
 
 void UCaptureGameViewportClient::CopyTextureRHI(FRenderTarget* MyViewRenderTarget,
