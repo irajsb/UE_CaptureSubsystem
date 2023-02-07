@@ -57,7 +57,7 @@ public:
 	
 	virtual void OnNewSubmixBuffer(const USoundSubmix* OwningSubmix, float* AudioData, int32 NumSamples, int32 NumChannels, const int32 SampleRate, double AudioClock) override;
 	void OnBackBufferReady_RenderThread(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer);
-	bool Tick(float time);
+	bool Tick(float DeltaTime);
 
 	void EndWindowReader(const bool i);
 	void EndWindowReader_StandardGame(void* i);
@@ -79,7 +79,7 @@ private:
 	void Alloc_Video_Filter();
 	static uint32 FormatSize_X(uint32 x);
 
-	static void LogErrorUE(int ErrorNum, bool bFatal);
+	static void LogErrorUE(FString ErrorMessage,int ErrorNum, bool bFatal);
 
 private:
 	bool IsDestroy = false;
@@ -136,6 +136,7 @@ private:
 
 	
 	TEnumAsByte<EWorldType::Type> GameMode;
+	float AverageTick=0.f;
 };
 
 
