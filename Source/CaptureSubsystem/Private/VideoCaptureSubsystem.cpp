@@ -26,10 +26,10 @@ void UVideoCaptureSubsystem::StartCapture(FVideoCaptureOptions Options)
 	{
 		Options.OutFileName = GetRecommendedVideoFileName();
 	}
-	Director->Initialize_Director(GetWorld(), Options);
+	Director->Initialize_Director(GetWorld(), Options,this);
 }
 
-void UVideoCaptureSubsystem::EndCapture(FVideoCaptureOptions Options)
+void UVideoCaptureSubsystem::EndCapture()
 {
 	UE_LOG(LogCaptureSubsystem, Log, TEXT("Ending Video"));
 	if (Director)

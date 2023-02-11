@@ -14,6 +14,5 @@ Contributions are welcome.
 2- Call StartCapture, EndCapture or TakeScreenshot.
 ## TODO : 
 - Clean up video capture code and algorithm.
-- Reduce audio circle queues from two to one.
 - Remove deprecated libavutil functions.
 ### Made in collaboration with Serpentine Arts Technologies

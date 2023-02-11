@@ -3,35 +3,20 @@
 
 #include "EncoderThread.h"
 
+#include "CaptureSubsystem.h"
+
 
 FEncoderThread::FEncoderThread()
 {
-	VideoBufferQueue = nullptr;
-	AudioQueue = nullptr;
-	AudioTimeQueue = nullptr;
-	
+
+	VideoDataQueue=nullptr;
+	AudioDataQueue=nullptr;
 }
 
 FEncoderThread::~FEncoderThread()
 {
-	if (AudioQueue)
-	{
-		AudioQueue->RemoveFromRoot();
-		AudioQueue->ConditionalBeginDestroy();
-		AudioQueue->BeginDestroy();
-	}
-	if (VideoBufferQueue)
-	{
-		VideoBufferQueue->RemoveFromRoot();
-		VideoBufferQueue->ConditionalBeginDestroy();
-		VideoBufferQueue->BeginDestroy();
-	}
-	if (AudioTimeQueue)
-	{
-		AudioTimeQueue->RemoveFromRoot();
-		AudioTimeQueue->ConditionalBeginDestroy();
-		AudioTimeQueue->BeginDestroy();
-	}
+	VideoDataQueue.Reset();
+	AudioDataQueue.Reset();
 }
 
 bool FEncoderThread::Init()
@@ -57,90 +42,63 @@ void FEncoderThread::Exit()
 {
 }
 
-void FEncoderThread::CreateQueue(int video_data_size, int video_data_num)
+void FEncoderThread::CreateVideoQueue()
 {
-	VideoBufferQueue = NewObject<UCircleQueue>();
-	VideoBufferQueue->AddToRoot();
-	VideoBufferQueue->Init(video_data_num, video_data_size);
-	VideoBufferQueue->EncodeDelegate.BindRaw(this, &FEncoderThread::GetBufferData);
+	UE_LOG(LogCaptureSubsystem,Log,TEXT("Creating Video Queue"))
+	VideoDataQueue=MakeUnique<TCircularQueue<FVideoData>>(60 );
 }
 
-void FEncoderThread::CreateAudioQueue(const int AudioDataSize, const int AudioDataNum)
+void FEncoderThread::CreateAudioQueue()
 {
-	AudioQueue = NewObject<UCircleQueue>();
-	AudioQueue->AddToRoot();
-	AudioQueue->Init(AudioDataNum, AudioDataSize);
-
-
-	AudioTimeQueue = NewObject<UCircleQueue>();
-	AudioTimeQueue->AddToRoot();
-	AudioTimeQueue->Init(AudioDataNum, AudioDataNum * sizeof(double));
+	UE_LOG(LogCaptureSubsystem,Log,TEXT("Creating Audio Queue"))
+	AudioDataQueue=MakeUnique<TCircularQueue<FAudioData>>(60 );
+	
 }
 
 bool FEncoderThread::IsAudioThreadInitialized() const
 {
-	if (AudioQueue)
+	if (AudioDataQueue)
 	{
 		return true;
 	}
 	return false;
 }
 
-EncodeDelegate& FEncoderThread::GetAudioProcessDelegate() const
-{
-	return AudioQueue->EncodeDelegate;
-}
 
-EncodeDelegate& FEncoderThread::GetAudioTimeProcessDelegate() const
-{
-	return AudioTimeQueue->EncodeDelegate;
-}
-
-bool FEncoderThread::InsertVideo(const uint8* Src)
+void FEncoderThread::InsertVideo(void* TextureData, float DeltaTime)
 {
 	if (bStopped)
 	{
-		return false;
+		return ;
 	}
-	if (!VideoBufferQueue)
+	if (!VideoDataQueue)
 	{
-		return false;
+		return ;
 	}
-	{
+
+	
 		FScopeLock ScopeLock(&VideoBufferMutex);
-		while (!VideoBufferQueue->InsertEncodeData(Src))
-		{
-			VideoBufferQueue->ProcessEncodeData();
-			EncodeVideo();
-		}
-	}
-	return true;
+		VideoDataQueue->Enqueue(FVideoData(DeltaTime,TextureData));
+	
+
 }
 
-bool FEncoderThread::InsertAudio(uint8* Src, uint8* time)
+bool FEncoderThread::InsertAudio(void* Data, float AudioClock) const
 {
 	if (bStopped)
 	{
 		return false;
 	}
-	if (!AudioQueue || !AudioTimeQueue)
+	if (!AudioDataQueue)
 	{
 		return false;
 	}
-
-	FScopeLock ScopeLock(&AudioMutex);
-	while (!AudioQueue->InsertEncodeData(Src) || !AudioTimeQueue->InsertEncodeData(time))
-	{
-		EncodeAudio();
-	}
+	AudioDataQueue->Enqueue(FAudioData(AudioClock,Data));
 
 	return true;
 }
 
-void FEncoderThread::GetBufferData(uint8* data)
-{
-	VideoData = data;
-}
+
 
 void FEncoderThread::RunEncode()
 {
@@ -151,39 +109,42 @@ void FEncoderThread::RunEncode()
 
 	{
 		FScopeLock ScopeLock1(&VideoBufferMutex);
-
-		if (VideoBufferQueue->ProcessEncodeData())
 		{
 			EncodeVideo();
 		}
 	}
 }
 
-void FEncoderThread::EncodeVideo()
+void FEncoderThread::EncodeVideo() const
 {
-	if (VideoData)
+	FVideoData Data;
+	
+	if(VideoDataQueue->Dequeue(Data))
 	{
-		video_encode_delegate.ExecuteIfBound(VideoData);
-		VideoData = nullptr;
+		VideoEncodeDelegate.ExecuteIfBound(Data);
 	}
+
 }
 
-void FEncoderThread::EncodeAudio() 
+void FEncoderThread::EncodeAudio() const
 {
 
-	if (AudioQueue && AudioTimeQueue)
+	FAudioData Data;
+	if(!AudioDataQueue)
 	{
-		AudioTimeQueue->ProcessEncodeData();
-		AudioQueue->ProcessEncodeData();
+		return;
 	}
+	if(AudioDataQueue->Dequeue(Data))
+	{
+		AudioEncodeDelegate.ExecuteIfBound(Data);
+	}
+	
 	
 }
 
 bool FEncoderThread::IsFinished() const
 {
-	if (!AudioQueue || !AudioTimeQueue)
-	{
-		return false;
-	}
-	return AudioQueue->IsEmpty() && AudioTimeQueue->IsEmpty() && (!VideoData);
+	
+	return VideoDataQueue->IsEmpty()&&AudioDataQueue->IsEmpty();
+
 }

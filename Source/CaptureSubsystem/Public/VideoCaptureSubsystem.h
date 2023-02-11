@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "VideoCaptureSubsystem.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnError,FString,ErrorText);
 class UCaptureSubsystemDirector;
 /**
  * 
@@ -41,10 +42,11 @@ class CAPTURESUBSYSTEM_API UVideoCaptureSubsystem : public UGameInstanceSubsyste
 	GENERATED_BODY()
 
 
+public:
 	UFUNCTION(BlueprintCallable)
 	void StartCapture(FVideoCaptureOptions Options);
 	UFUNCTION(BlueprintCallable)
-	void EndCapture(FVideoCaptureOptions Options);
+	void EndCapture();
 
 
 	UPROPERTY(Transient)
@@ -63,6 +65,9 @@ class CAPTURESUBSYSTEM_API UVideoCaptureSubsystem : public UGameInstanceSubsyste
 	FString GetRecommendedPhotoFileName() const;
 	//call back to read screenshot data
 	void OnBackBufferReady_RenderThread(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer);
+	UPROPERTY(BlueprintAssignable)
+	FOnError OnError;
+	
 	FSlateApplication* SlateApplication;
 
 

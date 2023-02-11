@@ -4,19 +4,34 @@
 
 #include "CoreMinimal.h"
 #include "HAL/Runnable.h"
-#include "EncodeData.h"
 #include "Containers/CircularQueue.h"
+#include "Containers/RingBuffer.h"
 
 /**
  * 
  */
 
+struct FVideoData
+{
+	void* TextureData;
+	float FrameDeltaTime;
+	FVideoData(float InDeltaTime,void* Data)
+	{
+		TextureData=Data;
+		FrameDeltaTime=InDeltaTime;
+	}
+	FVideoData()
+	{
+		TextureData=nullptr;
+		FrameDeltaTime=0.f;
+	}
+};
 
 struct FAudioData
 {
-	uint8* Data;
+	void* Data;
 	float Time;
-	FAudioData(float InTime,uint8* InData)
+	FAudioData(float InTime,void* InData)
 	{
 		Time=InTime;
 		Data=InData;
@@ -30,7 +45,9 @@ struct FAudioData
 
 class UCircleQueue;
 
-DECLARE_DELEGATE_OneParam(VideoEncodeDelegate, uint8*)
+
+DECLARE_DELEGATE_OneParam(FVideoEncodeDelegate, const FVideoData& )
+DECLARE_DELEGATE_OneParam(FAudioEncodeDelegate, const FAudioData& )
 
 class CAPTURESUBSYSTEM_API FEncoderThread :public FRunnable 
 {
@@ -43,36 +60,34 @@ public:
 	virtual void Stop() override;  
 	virtual void Exit() override; 
 	
-	void CreateQueue(int video_data_size ,int video_data_num);
-	void CreateAudioQueue( int AudioDataSize, int AudioDataNum);
+	void CreateVideoQueue();
+	void CreateAudioQueue();
 	bool IsAudioThreadInitialized() const;
 
-	EncodeDelegate& GetAudioProcessDelegate() const;
-	EncodeDelegate& GetAudioTimeProcessDelegate() const;
 
-	bool InsertVideo(const uint8* Src);
-	bool InsertAudio(uint8* Src, uint8* time);
+	void InsertVideo(void* TextureData, float DeltaTime);
+	bool InsertAudio(void* Data, float AudioClock) const;
 
 	FCriticalSection VideoBufferMutex;
 	FCriticalSection AudioMutex;
 
 	bool bStopped = false;
 	bool bExit = false;
-	VideoEncodeDelegate video_encode_delegate;
-	void GetBufferData(uint8* data);
+	FVideoEncodeDelegate VideoEncodeDelegate;
+	FAudioEncodeDelegate AudioEncodeDelegate;
+	
 	
 	bool IsFinished() const;
 private:
 	void RunEncode();
-	void EncodeVideo();
-	void EncodeAudio() ;
+	void EncodeVideo() const;
+	void EncodeAudio() const;
 
 private:
-	
-	UCircleQueue* VideoBufferQueue;
-	UCircleQueue* AudioQueue;
-	UCircleQueue* AudioTimeQueue;
-	
+
+private:
 	TUniquePtr< TCircularQueue<FAudioData> >AudioDataQueue;
-	uint8* VideoData=nullptr;
+	TUniquePtr< TCircularQueue<FVideoData> >VideoDataQueue;
+	
+
 };

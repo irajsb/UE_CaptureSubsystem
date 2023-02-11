@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AudioMixerDevice.h"
+#include "EncoderThread.h"
 #include "RHIResources.h"
 #include "RHICommandList.h"
 #include "VideoCaptureSubsystem.h"
@@ -35,7 +36,7 @@ extern "C"
  * 
  */
 class FEncoderThread;
-
+class UVideoCaptureSubsystem;
 
 UCLASS(BlueprintType)
 class CAPTURESUBSYSTEM_API UCaptureSubsystemDirector:public UObject,public ISubmixBufferListener
@@ -46,13 +47,13 @@ public:
 	UCaptureSubsystemDirector();
 	virtual ~UCaptureSubsystemDirector();
 	UFUNCTION(BlueprintCallable)
-	void Initialize_Director(UWorld* World,FVideoCaptureOptions CaptureOptions);
+	void Initialize_Director(UWorld* World, FVideoCaptureOptions CaptureOptions, UVideoCaptureSubsystem* InSubsystem);
 	void Begin_Receive_AudioData(UWorld* world);
 	void Begin_Receive_VideoData();
 
-	void Encode_Video_Frame(uint8_t *rgb);
+	void Encode_Video_Frame(const FVideoData& VideoData);
 	void Encode_SetCurrentAudioTime(uint8_t* rgb);
-	void Encode_Audio_Frame(uint8_t *RawData);
+	void Encode_Audio_Frame(const FAudioData& AudioData);
 	void Encode_Finish();
 	
 	virtual void OnNewSubmixBuffer(const USoundSubmix* OwningSubmix, float* AudioData, int32 NumSamples, int32 NumChannels, const int32 SampleRate, double AudioClock) override;
@@ -79,7 +80,7 @@ private:
 	void Alloc_Video_Filter();
 	static uint32 FormatSize_X(uint32 x);
 
-	static void LogErrorUE(FString ErrorMessage,int ErrorNum, bool bFatal);
+	 void LogErrorUE(FString ErrorMessage,int ErrorNum, bool bFatal);
 
 private:
 	bool IsDestroy = false;
@@ -110,6 +111,7 @@ private:
 	TArray<FColor> TexturePixel;
 	float TickTime = 0.0f;
 	int64_t Video_Pts = 0;
+	double VideoClock;
 	uint8_t* BuffBgr;
 	int32_t VideoIndex;
 	int32_t AudioIndex;
@@ -133,10 +135,10 @@ private:
 
 	AVFrame* AudioFrame;
 	AVFrame* VideoFrame;
-
+	UVideoCaptureSubsystem* Subsystem;
 	
 	TEnumAsByte<EWorldType::Type> GameMode;
-	float AverageTick=0.f;
+	float FrameDeltaTime=0.f;
 };
 
 
