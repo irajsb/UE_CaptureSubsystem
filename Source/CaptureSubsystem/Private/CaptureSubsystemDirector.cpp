@@ -228,7 +228,7 @@
 			}
 			else
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Waiting for encoding to finish"));
+				UE_LOG(LogCaptureSubsystem, Warning, TEXT("Waiting for encoding to finish"));
 			}
 		}
 		return true;
@@ -346,7 +346,7 @@
 				EncoderCodec = avcodec_find_encoder_by_name("h264_nvenc");
 				if (EncoderCodec)
 				{
-					UE_LOG(LogTemp, Log, TEXT("nvenc added"));
+					UE_LOG(LogCaptureSubsystem, Log, TEXT("nvenc added"));
 				}
 			}
 			else if (IsRHIDeviceAMD())
@@ -354,7 +354,7 @@
 				EncoderCodec = avcodec_find_encoder_by_name("h264_amf");
 				if (EncoderCodec)
 				{
-					UE_LOG(LogTemp, Log, TEXT("AMF"))
+					UE_LOG(LogCaptureSubsystem, Log, TEXT("AMF"))
 				}
 			}
 			if (!EncoderCodec)
@@ -509,7 +509,7 @@
 
 	void UCaptureSubsystemDirector::Encode_Audio_Frame(const FAudioData& AudioData)
 	{
-		UE_LOG(LogTemp,Log,TEXT("Encoding audio "));
+		
 		const uint8_t* Data =static_cast<uint8*>( AudioData.Data);
 		CurrentAudioTime = AudioData.Time;
 		AVPacket* AVPacket = av_packet_alloc();
