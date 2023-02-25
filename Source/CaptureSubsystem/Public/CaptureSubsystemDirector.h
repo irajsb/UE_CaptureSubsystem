@@ -121,6 +121,7 @@ private:
 	FRunnableThread* RunnableThread;
 
 	AVFormatContext* OutFormatContext;
+	void SetupEncoderContext(const AVCodec* Codec,int BitRate);
 	AVCodecContext* VideoEncoderCodecContext;
 	AVCodecContext* AudioEncoderCodecContext;
 

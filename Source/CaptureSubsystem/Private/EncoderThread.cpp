@@ -144,7 +144,10 @@ void FEncoderThread::EncodeAudio() const
 
 bool FEncoderThread::IsFinished() const
 {
-	
+	if(!VideoDataQueue||!AudioDataQueue)
+	{
+		return false;
+	}
 	return VideoDataQueue->IsEmpty()&&AudioDataQueue->IsEmpty();
 
 }
