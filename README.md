@@ -10,9 +10,9 @@
 Contributions are welcome.
 
 ## How to use
-1- Set your game viewport client to CaptureViewportClient  
-2- Call StartCapture, EndCapture or TakeScreenshot.
+![](./.github/BeginRecord.png)   
+![](./.github/Photo.png)
 ## TODO : 
-- Clean up video capture code and algorithm.
+- Clean up video capture code and algorithm and use unreal coding standard.
 - Remove deprecated libavutil functions.
 ### Made in collaboration with Serpentine Arts Technologies

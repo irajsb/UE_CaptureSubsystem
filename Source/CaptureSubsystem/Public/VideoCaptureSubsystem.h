@@ -60,9 +60,9 @@ public:
 	bool IsRecording() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	FString GetRecommendedVideoFileName() const;
+	static FString GetRecommendedVideoFileName();
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	FString GetRecommendedPhotoFileName() const;
+	static FString GetRecommendedPhotoFileName() ;
 	//call back to read screenshot data
 	void OnBackBufferReady_RenderThread(SWindow& SlateWindow, const FTexture2DRHIRef& BackBuffer);
 	UPROPERTY(BlueprintAssignable)

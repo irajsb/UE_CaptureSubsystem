@@ -73,14 +73,14 @@ bool UVideoCaptureSubsystem::IsRecording() const
 	return Director != nullptr;
 }
 
-FString UVideoCaptureSubsystem::GetRecommendedVideoFileName() const
+FString UVideoCaptureSubsystem::GetRecommendedVideoFileName() 
 {
 	const FDateTime Now = FDateTime::Now();
 	return FString(FPlatformProcess::UserDir()) + "Capture/" + Now.ToString() + ".mp4";
 }
 
 
-FString UVideoCaptureSubsystem::GetRecommendedPhotoFileName() const
+FString UVideoCaptureSubsystem::GetRecommendedPhotoFileName() 
 {
 	const FDateTime Now = FDateTime::Now();
 	return FString(FPlatformProcess::UserDir()) + "Capture/" + Now.ToString() + ".jpg";
