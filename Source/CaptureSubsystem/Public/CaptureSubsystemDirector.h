@@ -104,6 +104,7 @@ private:
 	AVFilterGraph *FilterGraph;
 	AVFilterContext *BufferSinkContext;
 	AVFilterContext *BufferSrcContext;
+	AVFilterContext *FramerateContext;
 	
 
 	
@@ -111,7 +112,9 @@ private:
 	TArray<FColor> TexturePixel;
 	float TickTime = 0.0f;
 	int64_t Video_Pts = 0;
-	double VideoClock;
+	double VideoClock=0.f;
+	double GameClock=0.f;
+	bool CheckForRemainingFrames() const;
 	uint8_t* BuffBgr;
 	int32_t VideoIndex;
 	int32_t AudioIndex;
