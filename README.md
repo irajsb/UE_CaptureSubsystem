@@ -6,7 +6,7 @@
 - MultiThreaded
 - Supports showing and hiding the UI
 - Supports screenshots
-- Supports horizontal cropping
+- Supports horizontal cropping  
 Contributions are welcome.
 
 ## How to use
