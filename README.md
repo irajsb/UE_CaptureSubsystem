@@ -10,6 +10,9 @@
 Contributions are welcome.
 
 ## How to use
+First set Viewport client to CaptureGameViewportClient in project settings. then you can use these nodes:    
+
+
 ![](./.github/BeginRecord.png)   
 ![](./.github/Photo.png)
 ## TODO : 
