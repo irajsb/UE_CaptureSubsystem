@@ -1,4 +1,4 @@
-// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+// Copyright iraj mohtasham aurelion.net 2023
 
 using UnrealBuildTool;
 using System.IO;

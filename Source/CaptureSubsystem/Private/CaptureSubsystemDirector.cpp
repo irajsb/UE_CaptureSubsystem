@@ -1,4 +1,4 @@
-﻿	// Fill out your copyright notice in the Description page of Project Settings.
+﻿	// Copyright iraj mohtasham aurelion.net 2023
 	#include "CaptureSubsystemDirector.h"
 	#include "Engine/GameViewportClient.h"
 	#include "Slate/SceneViewport.h"
