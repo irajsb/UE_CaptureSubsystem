@@ -114,6 +114,8 @@ private:
 	int64_t Video_Pts = 0;
 	double VideoClock=0.f;
 	double GameClock=0.f;
+	//Game clock from the tick function . Video frames can be out of sync with the actual game delta time 
+	double ActualGameClock=0.f;
 	bool CheckForRemainingFrames() const;
 	uint8_t* BuffBgr;
 	int32_t VideoIndex;

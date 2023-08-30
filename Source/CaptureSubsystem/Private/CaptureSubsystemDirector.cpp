@@ -215,16 +215,17 @@ bool UCaptureSubsystemDirector::Tick(float DeltaTime)
 	{
 		// Set the frame delta time
 		FrameDeltaTime = DeltaTime;
-
+	
 		// Ensure the frame delta time is not smaller than the desired frame rate
 		if (FrameDeltaTime < 1.0 / Options.FPS)
 		{
 			FrameDeltaTime = 1.0 / Options.FPS;
 		}
+		
 
 		// Increase the tick time by the delta time
 		TickTime += DeltaTime;
-
+		ActualGameClock+=TickTime;
 		// Check if the subsystem is marked for destruction
 		if (IsDestroy)
 		{
@@ -669,11 +670,15 @@ void UCaptureSubsystemDirector::OnNewSubmixBuffer(const USoundSubmix* OwningSubm
 
 	void UCaptureSubsystemDirector::Encode_Video_Frame(const FVideoData& VideoData)
 {
+		
+	UE_LOG(LogTemp,Log,TEXT("FrameDeltaTime %f GameClock %f VideoClock %f ActualGame Clock %f "),VideoData.FrameDeltaTime,GameClock,VideoClock,TickTime);
 	// Update the game clock with the frame delta time
+		
 	GameClock += VideoData.FrameDeltaTime;
 
+		
 	// Drop this frame until we reach the video frame
-	if (GameClock < VideoClock)
+	if (GameClock < VideoClock||GameClock>ActualGameClock)
 	{
 		return;
 	}
