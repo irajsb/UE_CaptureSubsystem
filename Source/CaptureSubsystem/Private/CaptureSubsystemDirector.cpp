@@ -225,7 +225,7 @@ bool UCaptureSubsystemDirector::Tick(float DeltaTime)
 
 		// Increase the tick time by the delta time
 		TickTime += DeltaTime;
-		ActualGameClock+=TickTime;
+	
 		// Check if the subsystem is marked for destruction
 		if (IsDestroy)
 		{
@@ -671,15 +671,16 @@ void UCaptureSubsystemDirector::OnNewSubmixBuffer(const USoundSubmix* OwningSubm
 	void UCaptureSubsystemDirector::Encode_Video_Frame(const FVideoData& VideoData)
 {
 		
-	UE_LOG(LogTemp,Log,TEXT("FrameDeltaTime %f GameClock %f VideoClock %f ActualGame Clock %f "),VideoData.FrameDeltaTime,GameClock,VideoClock,TickTime);
+	
 	// Update the game clock with the frame delta time
 		
 	GameClock += VideoData.FrameDeltaTime;
 
 		
 	// Drop this frame until we reach the video frame
-	if (GameClock < VideoClock||GameClock>ActualGameClock)
+	if (GameClock < VideoClock)
 	{
+		UE_LOG(LogTemp,Log,TEXT("FrameDropped"));
 		return;
 	}
 
@@ -726,8 +727,12 @@ void UCaptureSubsystemDirector::OnNewSubmixBuffer(const USoundSubmix* OwningSubm
 	AVFrame* FilterFrame = av_frame_alloc();
 
 	// If the game FPS is less than the video FPS, add duplicate frames
+		//Cancel the first iteration subtraction We want to correct the number only if frames were duplicated
+		TickTime=TickTime+VideoTickTime;
 	while (VideoClock < GameClock)
 	{
+		
+		TickTime=TickTime-VideoTickTime;
 		VideoFrame->pts = VideoFrame->pkt_dts = OutVideoStream->time_base.den * VideoClock;
 		VideoFrame->duration = av_rescale_q(1, AVRational{ 1, Options.FPS }, OutVideoStream->time_base);
 		VideoClock += 1.f / Options.FPS;
