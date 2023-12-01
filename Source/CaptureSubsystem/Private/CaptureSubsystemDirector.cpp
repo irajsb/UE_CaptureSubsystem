@@ -79,6 +79,16 @@
 		this->BeginDestroy();
 	}
 
+	void UCaptureSubsystemDirector::ForceEndWindowReader_StandardGame(void* i)
+	{
+
+		DestroyDirector();
+		this->RemoveFromRoot();
+		this->ConditionalBeginDestroy();
+		this->BeginDestroy();
+		Encode_Finish();
+	}
+
 	void UCaptureSubsystemDirector::Begin_Receive_AudioData(UWorld* World)
 	{
 		GameMode = World->WorldType;

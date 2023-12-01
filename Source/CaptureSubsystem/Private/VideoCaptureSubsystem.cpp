@@ -15,6 +15,12 @@
 #include "Misc/FileHelper.h"
 
 
+void UVideoCaptureSubsystem::Deinitialize()
+{
+	Super::Deinitialize();
+	ForceEndCapture();
+}
+
 void UVideoCaptureSubsystem::StartCapture(FVideoCaptureOptions Options)
 {
 	UE_LOG(LogCaptureSubsystem, Log, TEXT("Capturing Video"));
@@ -51,6 +57,30 @@ void UVideoCaptureSubsystem::EndCapture()
 		if (GetWorld()->WorldType == EWorldType::PIE)
 		{
 			Director->EndWindowReader(false);
+		}
+#endif
+		Director = nullptr;
+	}
+	else
+	{
+		UE_LOG(LogCaptureSubsystem, Error, TEXT("End called but was not capturing "));
+	}
+}
+
+void UVideoCaptureSubsystem::ForceEndCapture()
+{
+
+	UE_LOG(LogCaptureSubsystem, Log, TEXT("Ending Video"));
+	if (Director)
+	{
+		if (GetWorld()->WorldType == EWorldType::Game)
+		{
+			Director->ForceEndWindowReader_StandardGame(nullptr);
+		}
+#if WITH_EDITOR
+		if (GetWorld()->WorldType == EWorldType::PIE)
+		{
+			Director->ForceEndWindowReader_StandardGame(nullptr);
 		}
 #endif
 		Director = nullptr;

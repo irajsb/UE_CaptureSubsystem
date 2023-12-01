@@ -43,10 +43,14 @@ class CAPTURESUBSYSTEM_API UVideoCaptureSubsystem : public UGameInstanceSubsyste
 
 
 public:
+	virtual void Deinitialize() override;
 	UFUNCTION(BlueprintCallable)
 	void StartCapture(FVideoCaptureOptions Options);
 	UFUNCTION(BlueprintCallable)
 	void EndCapture();
+	// Force End Capture without waiting for the rest of the frames in threads
+	UFUNCTION(BlueprintCallable)
+	void ForceEndCapture();
 
 
 	UPROPERTY(Transient)
@@ -70,7 +74,7 @@ public:
 	
 	FSlateApplication* SlateApplication;
 
-
+	
 	FString ScreenShotPath;
 	FIntRect CaptureRect;
 	FVector2D AspectRatio;

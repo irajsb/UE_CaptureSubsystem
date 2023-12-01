@@ -62,6 +62,7 @@ public:
 
 	void EndWindowReader(const bool i);
 	void EndWindowReader_StandardGame(void* i);
+	void ForceEndWindowReader_StandardGame(void* i);
 	
 	void DestroyDirector();
 	
