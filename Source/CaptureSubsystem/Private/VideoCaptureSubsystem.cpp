@@ -26,6 +26,15 @@ void UVideoCaptureSubsystem::StartCapture(FVideoCaptureOptions Options)
 	{
 		Options.OutFileName = GetRecommendedVideoFileName();
 	}
+	//Check if file path is valid if not create the folders 
+	if (!FPaths::FileExists(Options.OutFileName))
+	{
+		const FString FolderPath = FPaths::GetPath(Options.OutFileName);
+		if (!FPaths::DirectoryExists(FolderPath))
+		{
+			FPlatformFileManager::Get().GetPlatformFile().CreateDirectoryTree(*FolderPath);
+		}
+	}
 	Director->Initialize_Director(GetWorld(), Options,this);
 }
 
