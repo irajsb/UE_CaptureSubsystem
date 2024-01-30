@@ -35,8 +35,8 @@
 		OutVideoStream(nullptr),
 		OutAudioStream(nullptr),
 		SWRContext(nullptr),
-		AudioFrame(nullptr),
-		VideoFrame(nullptr)
+		AudioFrame(nullptr)
+		
 	{
 		OutputChannels[0] = nullptr;
 		OutputChannels[1] = nullptr;
@@ -187,6 +187,7 @@ void UCaptureSubsystemDirector::Begin_Receive_VideoData()
 {
 	// Bind the OnBackBufferReady_RenderThread function to the OnBackBufferReadyToPresent event
 	FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().AddUObject(this, &UCaptureSubsystemDirector::OnBackBufferReady_RenderThread);
+		
 }
 
 
@@ -211,6 +212,7 @@ void UCaptureSubsystemDirector::OnBackBufferReady_RenderThread(SWindow& SlateWin
 				// Check if the encoding thread and video filter are not already created
 				if (!Runnable)
 				{
+					UE_LOG(LogTemp,Log,TEXT("Creating Encoder"))
 					CreateEncodeThread();
 					Alloc_Video_Filter();
 				}
@@ -500,25 +502,10 @@ void UCaptureSubsystemDirector::CreateEncodeThread()
 		LogErrorUE("avcodec_parameters_from_context error", Err, false);
 	}
 
-	// Allocate a video frame
-	VideoFrame = av_frame_alloc();
-	if (!VideoFrame)
-	{
-		UE_LOG(LogCaptureSubsystem, Fatal, TEXT("Video frame alloc failed"));
-	}
+	
 
-	// Open the output file
-	avio_open(&OutFormatContext->pb, out_file_name, AVIO_FLAG_WRITE);
-
-	// Allocate buffers for the video frame
-	const int Return = av_image_alloc(
-		VideoFrame->data,
-		VideoFrame->linesize,
-		OutWidth,
-		OutHeight,
-		VideoEncoderCodecContext->pix_fmt,
-		32
-	);
+		// Open the output file
+		const int Return= avio_open(&OutFormatContext->pb, out_file_name, AVIO_FLAG_WRITE);
 	if (Return < 0)
 	{
 		LogErrorUE("avio open error", Return, false);
@@ -549,7 +536,7 @@ void UCaptureSubsystemDirector::CreateEncodeThread()
 	Video_Frame_Duration = OutVideoStream->time_base.den / Options.FPS;
 }
 
-	void UCaptureSubsystemDirector::Video_Frame_YUV_From_BGR(const uint8_t* RGB, uint32 LineSize) const
+	void UCaptureSubsystemDirector::Video_Frame_YUV_From_BGR(AVFrame *VideoFrame, const uint8_t* RGB, uint32 LineSize) const
 {
 	// Scale the RGB frame to YUV using the software scaler context
 	const int LineSizeA[1] = { static_cast<int>(3 * LineSize) };
@@ -732,66 +719,69 @@ void UCaptureSubsystemDirector::OnNewSubmixBuffer(const USoundSubmix* OwningSubm
 
 	// Calculate the line size to pass to the YUV conversion function
 	const int ShiftStride = Difference != 0 ? 1 : 0;
-	Video_Frame_YUV_From_BGR(BuffBgr, ShiftStride + (GameTexture->GetSizeX() - Difference / 2) - Difference / 2);
 
-	AVFrame* FilterFrame = av_frame_alloc();
+		// Allocate a video frame
+		auto VideoFrame = av_frame_alloc();
+		if (!VideoFrame)
+		{
+			UE_LOG(LogCaptureSubsystem, Fatal, TEXT("Video frame alloc failed"));
+		}
+
+	
+
+		// Allocate buffers for the video frame
+		const int Return = av_image_alloc(
+			VideoFrame->data,
+			VideoFrame->linesize,
+			OutWidth,
+			OutHeight,
+			VideoEncoderCodecContext->pix_fmt,
+			32
+		);
+	Video_Frame_YUV_From_BGR(VideoFrame,BuffBgr, ShiftStride + (GameTexture->GetSizeX() - Difference / 2) - Difference / 2);
+
+	
 
 	// If the game FPS is less than the video FPS, add duplicate frames
 		//Cancel the first iteration subtraction We want to correct the number only if frames were duplicated
 		TickTime=TickTime+VideoTickTime;
 	while (VideoClock < GameClock)
 	{
-		
+	
 		TickTime=TickTime-VideoTickTime;
 		VideoFrame->pts = VideoFrame->pkt_dts = OutVideoStream->time_base.den * VideoClock;
 		VideoFrame->duration = av_rescale_q(1, AVRational{ 1, Options.FPS }, OutVideoStream->time_base);
 		VideoClock += 1.f / Options.FPS;
+	
+		int ret=0;
+		avcodec_send_frame(VideoEncoderCodecContext, VideoFrame);
+		while (ret >= 0)
+		{
+			ret = avcodec_receive_packet(VideoEncoderCodecContext, VideoPacket);
 
-		if (const int Err = av_buffersrc_add_frame_flags(BufferSrcContext, VideoFrame, AV_BUFFERSRC_FLAG_KEEP_REF); Err < 0)
-		{
-			LogErrorUE("av_buffersrc_add_frame_flags error ", Err, false);
-		}
-	}
-
-	// Process the video frames through the filter chain and encode them
-	while (true)
-	{
-		int ret = av_buffersink_get_frame(BufferSinkContext, FilterFrame);
-
-		if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-		{
-			break;
-		}
-		if (ret < 0)
-		{
-			break;
-		}
-		if (ret >= 0)
-		{
-			avcodec_send_frame(VideoEncoderCodecContext, FilterFrame);
-			while (ret >= 0)
+			if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
 			{
-				ret = avcodec_receive_packet(VideoEncoderCodecContext, VideoPacket);
-
-				if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
-				{
-					av_packet_unref(VideoPacket);
-					break;
-				}
-				if (ret < 0)
-				{
-					av_packet_unref(VideoPacket);
-					break;
-				}
-				VideoPacket->stream_index = VideoIndex;
-
-				av_interleaved_write_frame(OutFormatContext, VideoPacket);
+					
+				break;
 			}
-			av_packet_unref(VideoPacket);
-		}
-	}
+			if (ret < 0)
+			{
+				
+				break;
+			}
+			VideoPacket->stream_index = VideoIndex;
 
-	av_frame_unref(FilterFrame);
+			av_interleaved_write_frame(OutFormatContext, VideoPacket);
+		}
+		
+		
+	}
+		
+	
+		av_freep(VideoFrame->data);
+		av_packet_unref(VideoPacket);
+		
+		
 }
 
 	void UCaptureSubsystemDirector::Encode_SetCurrentAudioTime(uint8_t* rgb)
@@ -939,7 +929,7 @@ void UCaptureSubsystemDirector::OnNewSubmixBuffer(const USoundSubmix* OwningSubm
 		avfilter_inout_free(&Inputs);
 		avfilter_inout_free(&Outputs);
 
-		av_frame_free(&VideoFrame);
+		
 		av_frame_free(&AudioFrame);
 	}
 
