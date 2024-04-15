@@ -187,6 +187,7 @@ void UCaptureSubsystemDirector::Begin_Receive_VideoData()
 {
 	// Bind the OnBackBufferReady_RenderThread function to the OnBackBufferReadyToPresent event
 	FSlateApplication::Get().GetRenderer()->OnBackBufferReadyToPresent().AddUObject(this, &UCaptureSubsystemDirector::OnBackBufferReady_RenderThread);
+		
 }
 
 
@@ -313,8 +314,7 @@ void UCaptureSubsystemDirector::GetScreenVideoData()
 
 	SCOPED_DRAW_EVENT(RHICmdList, CaptureEvent);
 
-	// Transition the game texture to read-only access
-	RHICmdList.TransitionResource(ERHIAccess::ReadOnlyMask, GameTexture);
+
 
 	// Lock the game texture and get the texture data
 	TextureData = static_cast<uint8*>(RHICmdList.LockTexture2D(GameTexture->GetTexture2D(), 0, EResourceLockMode::RLM_ReadOnly, TextureStride, false));

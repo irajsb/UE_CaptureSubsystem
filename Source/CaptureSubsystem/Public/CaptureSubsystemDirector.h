@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "AudioMixerDevice.h"
 #include "EncoderThread.h"
+#include "ISubmixBufferListener.h"
 #include "RHIResources.h"
 #include "RHICommandList.h"
 #include "VideoCaptureSubsystem.h"
