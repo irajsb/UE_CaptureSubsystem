@@ -138,6 +138,7 @@ void UVideoCaptureSubsystem::OnBackBufferReady_RenderThread(SWindow& SlateWindow
 
 	if (const auto Texture = ViewportClient->MyRenderTarget->GetResource()->GetTexture2DRHI())
 	{
+		
 		const int Crop = AspectRatio.IsZero()
 			                 ? Texture->GetSizeX()
 			                 : Texture->GetSizeY() * AspectRatio.X / AspectRatio.Y;

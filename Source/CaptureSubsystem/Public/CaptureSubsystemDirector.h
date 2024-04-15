@@ -70,7 +70,7 @@ public:
 private:
 	void Create_Video_Encoder(bool UseGPU, const char* out_file_name,int bit_rate);
 	void Create_Audio_Encoder(const char* EncoderName);
-	void Video_Frame_YUV_From_BGR(const uint8_t *RGB,uint32 LineSize) const;
+	void Video_Frame_YUV_From_BGR(AVFrame* VideoFrame,const uint8_t *RGB,uint32 LineSize) const;
 	void Create_Audio_Swr(int NumChannels);
 	void GetScreenVideoData();
 
@@ -141,7 +141,7 @@ private:
 	FDelegateHandle EndPIEDelegateHandle;
 
 	AVFrame* AudioFrame;
-	AVFrame* VideoFrame;
+	
 	UVideoCaptureSubsystem* Subsystem;
 	
 	TEnumAsByte<EWorldType::Type> GameMode;
